@@ -1,81 +1,299 @@
-function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sales Master");
-  var data = e.parameter;
-  var date = data.date;
-  var staffName = data.staffName;
-  var lastRow = sheet.getLastRow();
-
-  if (lastRow >= 2) {
-    var values = sheet.getRange("F2:G" + lastRow).getValues();
-    for (var i = 0; i < values.length; i++) {
-      if (values[i][0] && values[i][1]) {
-        var existingDate = Utilities.formatDate(new Date(values[i][0]), Session.getScriptTimeZone(), "yyyy-MM-dd");
-        var existingStaff = values[i][1];
-        if (existingDate == date && existingStaff == staffName) {
-          return ContentService.createTextOutput("Duplicate entry: Same date and staff name already exists.").setMimeType(ContentService.MimeType.TEXT);
-        }
-      }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Master Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-image: url('https://pjejewels.github.io/Sales_Team_Form/ornaments.jpg');
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
     }
-  }
+    .logo { position: fixed; top: 10px; left: 10px; width: 100px; }
+    .form-container, #loginContainer {
+      max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd;
+      background-color: rgba(249, 249, 249, 0.95); border-radius: 8px;
+    }
+    label { font-weight: bold; margin-top: 5px; display: block; }
+    input, select { width: 100%; padding: 8px; margin: 5px 0 15px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; width: 100%; border-radius: 4px; font-weight: bold; }
+    button:hover { background-color: #45a049; }
+    .admin-btn { background-color: #333; margin-top: 10px; }
+    .admin-btn:hover { background-color: #111; }
+    .action-btn { padding: 4px 8px; font-size: 12px; width: auto; margin-right: 5px; }
+    .edit-btn { background-color: #2196F3; }
+    .deactivate-btn { background-color: #f44336; }
+    .activate-btn { background-color: #ff9800; }
+    #successMessage, #errorMessage { display: none; padding: 10px; margin-bottom: 15px; color: white; text-align: center; border-radius: 4px; }
+    #formContainer, #adminPanel { display: none; }
+    .three-columns { display: flex; flex-wrap: wrap; gap: 10px; }
+    .three-columns > div { flex: 1 1 30%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #eee; }
+  </style>
+</head>
+<body>
 
-  var newRow = ["", "", "", "", "", data.date, data.staffName, data.totalWalkIn, data.bill, data.order, data.advance, data.returnCount, data.repair, data.npc, data.cancelledOrders, data.npcCalls, data.npcVisitStore, data.googleReview, data.referenceCount, data.referenceCalls, data.referenceVisit, data.birthdayCount, data.anniversaryCount, data.schemesCount, data.schemesValue, data.salesReturnCount, data.salesReturnValue, data.helpFirst, data.helpFirstRemarks];
-  sheet.appendRow(newRow);
-  return ContentService.createTextOutput("Submitted successfully!").setMimeType(ContentService.MimeType.TEXT);
-}
+<img src="https://pjejewels.github.io/Sales_Team_Form/Logo1.jpg" alt="Logo" class="logo">
 
-// --- ADMIN PANEL EMPLOYEE SYNC CODE ---
-function doGet(e) {
-  var sheet = SpreadsheetApp.openById('1Zi8NWen9Eh4kvHOqj4mOm325WE93NnHrbWNVp2Arp6g').getSheetByName('Employee');
+<div id="loginContainer">
+  <h2>Sales Team Login</h2>
+  <label>Username:</label><input type="text" id="username" required>
+  <label>Password:</label><input type="password" id="password" required>
+  <button type="button" onclick="login()">Login</button>
+  <button type="button" class="admin-btn" onclick="openAdmin()">Admin Access</button>
+</div>
+
+<div id="adminPanel" class="form-container">
+  <h2>Admin Panel - Manage Users</h2>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <input type="text" id="newUserName" placeholder="Enter new user name" style="margin: 0;">
+    <button type="button" id="addUserBtn" onclick="adminAddUser()" style="width: 150px;">+ Add User</button>
+  </div>
+  <table>
+    <thead><tr><th>Name</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody id="adminTableBody"></tbody>
+  </table>
+  <button type="button" class="admin-btn" onclick="closeAdmin()">Log Out Admin</button>
+</div>
+
+<div id="formContainer" class="form-container">
+  <h2>Sales Master Entry Form</h2>
+  <div id="successMessage"></div><div id="errorMessage"></div>
+  <form id="salesForm" onsubmit="return validateForm()">
+    <div class="three-columns">
+      <div><label>Date:</label><input type="date" name="date" required></div>
+      <div>
+        <label>Staff Name:</label>
+        <select id="staffName" name="staffName" required>
+          <option value="">Loading Staff...</option>
+        </select>
+      </div>
+      <div><label>Total Walk-in:</label><input type="number" name="totalWalkIn" required></div>
+    </div>
+    
+    <div class="three-columns">
+      <div><label>Bill:</label><input type="number" name="bill" required></div>
+      <div><label>Order:</label><input type="number" name="order" required></div>
+      <div><label>Advance:</label><input type="number" name="advance" required></div>
+    </div>
+    <div class="three-columns">
+      <div><label>Return:</label><input type="number" name="returnCount" required></div>
+      <div><label>Repair:</label><input type="number" name="repair" required></div>
+      <div><label>NPC:</label><input type="number" name="npc" required></div>
+    </div>
+    <div class="three-columns">
+      <div><label>Cancelled Orders:</label><input type="number" name="cancelledOrders" required></div>
+      <div><label>NPC Calls:</label><input type="number" name="npcCalls" required></div>
+      <div><label>NPC Visit Store:</label><input type="number" name="npcVisitStore" required></div>
+    </div>
+    <div class="three-columns">
+      <div><label>Google Review:</label><input type="number" name="googleReview" required></div>
+      <div><label>No. of Reference:</label><input type="number" name="referenceCount" required></div>
+      <div><label>Reference Calls:</label><input type="number" name="referenceCalls" required></div>
+    </div>
+    <div class="three-columns">
+      <div><label>Reference Visit:</label><input type="number" name="referenceVisit" required></div>
+      <div><label>Birthday's (Count):</label><input type="number" name="birthdayCount" required></div>
+      <div><label>Anniversary's (Count):</label><input type="number" name="anniversaryCount" required></div>
+    </div>
+    <div class="three-columns">
+      <div><label>Schemes (Count):</label><input type="number" name="schemesCount" required></div>
+      <div><label>Schemes (Value):</label><input type="number" name="schemesValue" required></div>
+      <div><label>Sales Return (Count):</label><input type="number" name="salesReturnCount" required></div>
+    </div>
+    <div class="three-columns">
+      <div><label>Sales Return (Value):</label><input type="number" name="salesReturnValue" required></div>
+      <div>
+        <label>Help First:</label>
+        <select name="helpFirst" required>
+          <option value="">Select Option</option><option value="Positive">Positive</option><option value="Negative">Negative</option>
+        </select>
+      </div>
+      <div><label>Help First Remarks:</label><input type="text" name="helpFirstRemarks" required></div>
+    </div>
+    <button type="submit" id="submitBtn" style="margin-top: 15px;">Submit Form</button>
+  </form>
+</div>
+
+<script>
   
-  if (!e || !e.parameter || !e.parameter.action) { 
-    return ContentService.createTextOutput("Invalid Request"); 
-  }
-  
-  var action = e.parameter.action;
-  if (action === 'getStaff') { return getStaffList(sheet); }
-  else if (action === 'addStaff') { sheet.appendRow([e.parameter.name, 'Active']); return getStaffList(sheet); }
-  else if (action === 'editStaff') { updateStaff(sheet, e.parameter.oldName, e.parameter.newName); return getStaffList(sheet); }
-  else if (action === 'toggleStaff') { toggleStaffStatus(sheet, e.parameter.name); return getStaffList(sheet); }
-  
-  return ContentService.createTextOutput("Invalid Request");
-}
+  // =========================================================================
+  // IF IT STILL FAILS, PASTE YOUR NEW GOOGLE LINK INSIDE THE QUOTES BELOW
+  // =========================================================================
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymeHUhts9BKr2sJeA0SZ7NTf7UjtDDUuD0hFRP_wO9S0jx_eTD6UsB_vWBIaUR3SND/exec";
+  // =========================================================================
 
-function getStaffList(sheet) {
-  var lastRow = sheet.getLastRow();
-  var staffList = [];
-  if (lastRow >= 2) {
-    var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
-    for (var i = 0; i < data.length; i++) {
-      if (data[i][0]) {
-        var isActive = (data[i][1] !== 'Deactivated');
-        staffList.push({ name: data[i][0], active: isActive });
+  let staffDataProfile = [];
+
+  document.addEventListener("DOMContentLoaded", () => {
+    fetchStaffData("?action=getStaff");
+  });
+
+  async function fetchStaffData(actionQuery) {
+    try {
+      const timestamp = new Date().getTime(); 
+      const response = await fetch(SCRIPT_URL + actionQuery + "&t=" + timestamp);
+      const data = await response.json();
+      staffDataProfile = data;
+      
+      loadActiveStaffDropdown();
+      if (document.getElementById("adminPanel").style.display === "block") {
+        renderAdminTable();
       }
+    } catch (error) {
+      console.error("Database connection error:", error);
+      document.getElementById("staffName").innerHTML = '<option value="">Error Loading Staff</option>';
     }
   }
-  return ContentService.createTextOutput(JSON.stringify(staffList)).setMimeType(ContentService.MimeType.JSON);
-}
 
-function updateStaff(sheet, oldName, newName) {
-  var lastRow = sheet.getLastRow();
-  if (lastRow >= 2) {
-    var data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (var i = 0; i < data.length; i++) {
-      if (data[i][0] == oldName) { sheet.getRange(i + 2, 1).setValue(newName); break; }
-    }
-  }
-}
+  function loadActiveStaffDropdown() {
+    const select = document.getElementById("staffName");
+    select.innerHTML = '<option value="">Select Staff</option>';
 
-function toggleStaffStatus(sheet, name) {
-  var lastRow = sheet.getLastRow();
-  if (lastRow >= 2) {
-    var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
-    for (var i = 0; i < data.length; i++) {
-      if (data[i][0] == name) {
-        var currentStatus = data[i][1];
-        var newStatus = (currentStatus === 'Deactivated') ? 'Active' : 'Deactivated';
-        sheet.getRange(i + 2, 2).setValue(newStatus);
-        break;
+    const sortedData = [...staffDataProfile].sort((a, b) => a.name.localeCompare(b.name));
+    sortedData.forEach(staff => {
+      if (staff.active) {
+        const option = document.createElement("option");
+        option.value = staff.name;
+        option.textContent = staff.name;
+        select.appendChild(option);
       }
+    });
+  }
+
+  // ---- ADMIN FUNCTIONS ----
+  function openAdmin() {
+    const pin = prompt("Enter Admin PIN:");
+    if (pin === "7890") { 
+      document.getElementById("loginContainer").style.display = "none";
+      document.getElementById("adminPanel").style.display = "block";
+      renderAdminTable();
+    } else if (pin !== null) alert("Incorrect PIN!");
+  }
+
+  function closeAdmin() {
+    document.getElementById("adminPanel").style.display = "none";
+    document.getElementById("loginContainer").style.display = "block";
+  }
+
+  function renderAdminTable() {
+    const tbody = document.getElementById("adminTableBody");
+    tbody.innerHTML = "";
+    
+    const sortedData = [...staffDataProfile].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedData.forEach(staff => {
+      const tr = document.createElement("tr");
+      const statusColor = staff.active ? "green" : "red";
+      const statusText = staff.active ? "Active" : "Deactivated";
+      const toggleClass = staff.active ? "deactivate-btn" : "activate-btn";
+      const toggleText = staff.active ? "Deactivate" : "Activate";
+
+      tr.innerHTML = `
+        <td>${staff.name}</td>
+        <td style="color: ${statusColor}; font-weight: bold;">${statusText}</td>
+        <td>
+          <button type="button" class="action-btn edit-btn" onclick="adminEditUser('${staff.name}')">✎ Rename</button>
+          <button type="button" class="action-btn ${toggleClass}" onclick="adminToggleStatus('${staff.name}')">${toggleText}</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function adminAddUser() {
+    const nameInput = document.getElementById("newUserName");
+    const name = nameInput.value.trim();
+    if (name === "") return alert("Please enter a name.");
+
+    if (staffDataProfile.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+      return alert("This user already exists!");
+    }
+
+    const btn = document.getElementById("addUserBtn");
+    btn.innerText = "Saving...";
+    await fetchStaffData("?action=addStaff&name=" + encodeURIComponent(name));
+    btn.innerText = "+ Add User";
+    nameInput.value = "";
+  }
+
+  async function adminEditUser(oldName) {
+    const newName = prompt(`Enter new name for ${oldName}:`, oldName);
+    if (newName && newName.trim() !== "" && newName.trim() !== oldName) {
+      await fetchStaffData(`?action=editStaff&oldName=${encodeURIComponent(oldName)}&newName=${encodeURIComponent(newName.trim())}`);
     }
   }
-}
+
+  async function adminToggleStatus(name) {
+    await fetchStaffData(`?action=toggleStaff&name=${encodeURIComponent(name)}`);
+  }
+
+  // ---- FORM SUBMIT LOGIC ----
+  function login() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+    
+    if (user === "CRE@PJEJEWELS.COM" && pass === "PJE@16105!") {
+      document.getElementById("loginContainer").style.display = "none";
+      document.getElementById("formContainer").style.display = "block";
+    } else {
+      alert("Invalid username or password");
+    }
+  }
+
+  function validateForm() {
+    const form = document.getElementById("salesForm");
+    if (!form.checkValidity()) {
+      alert("Please fill all required fields!");
+      return false;
+    }
+    submitForm();
+    return false;
+  }
+
+  function submitForm() {
+    const form = document.getElementById("salesForm");
+    const formData = new FormData(form);
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.innerText = "Submitting...";
+    submitBtn.disabled = true;
+
+    fetch(SCRIPT_URL, {
+      method: "POST",
+      body: formData
+    })
+    .then(response => response.text())
+    .then(result => {
+      const successMsg = document.getElementById("successMessage");
+      const errorMsg = document.getElementById("errorMessage");
+
+      if (result.includes("Duplicate entry")) {
+        errorMsg.style.display = "block";
+        errorMsg.style.backgroundColor = "red";
+        errorMsg.innerText = "Duplicate Entry! Please check and try again.";
+        setTimeout(() => errorMsg.style.display = "none", 5000);
+      } else {
+        form.reset();
+        successMsg.style.display = "block";
+        successMsg.style.backgroundColor = "green";
+        successMsg.innerText = "Form submitted successfully!";
+        setTimeout(() => successMsg.style.display = "none", 5000);
+      }
+      submitBtn.innerText = "Submit Form";
+      submitBtn.disabled = false;
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+      submitBtn.innerText = "Submit Form";
+      submitBtn.disabled = false;
+    });
+  }
+</script>
+
+</body>
+</html>
