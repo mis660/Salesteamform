@@ -121,11 +121,10 @@
 </div>
 
 <script>
-  
   // =========================================================================
-  // THIS LINK HAS NOW BEEN FIXED USING THE SCREENSHOT YOU PROVIDED!
+  // PASTE YOUR LATEST DEPLOYMENT URL BELOW
   // =========================================================================
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvqeb8JduUVI2DrdaPL6muL70RCxGMNC3ZtqDqKnKnmVaO702qoBFmoWCAgo9IxEep/exec";
+  const SCRIPT_URL = "YOUR_NEW_WEB_APP_URL_HERE";
   // =========================================================================
 
   let staffDataProfile = [];
@@ -138,16 +137,31 @@
     try {
       const timestamp = new Date().getTime(); 
       const response = await fetch(SCRIPT_URL + actionQuery + "&t=" + timestamp);
-      const data = await response.json();
-      staffDataProfile = data;
-      
-      loadActiveStaffDropdown();
-      if (document.getElementById("adminPanel").style.display === "block") {
-        renderAdminTable();
+      const textResponse = await response.text();
+
+      try {
+        const data = JSON.parse(textResponse);
+        
+        if (data.length > 0 && data[0].isError) {
+           console.error("Backend Error:", data[0].name);
+           alert("Server Error:\n" + data[0].name + "\n\nPlease run the script in the Apps Script Editor to authorize permissions.");
+           document.getElementById("staffName").innerHTML = '<option value="">Permission Error</option>';
+           return;
+        }
+
+        staffDataProfile = data;
+        loadActiveStaffDropdown();
+        if (document.getElementById("adminPanel").style.display === "block") {
+          renderAdminTable();
+        }
+      } catch (parseError) {
+        console.error("Failed to parse JSON. Server returned:", textResponse);
+        document.getElementById("staffName").innerHTML = '<option value="">Failed to Connect</option>';
       }
+
     } catch (error) {
-      console.error("Database connection error:", error);
-      document.getElementById("staffName").innerHTML = '<option value="">Error Loading Staff</option>';
+      console.error("Network error:", error);
+      document.getElementById("staffName").innerHTML = '<option value="">Network Error</option>';
     }
   }
 
@@ -155,9 +169,14 @@
     const select = document.getElementById("staffName");
     select.innerHTML = '<option value="">Select Staff</option>';
 
+    if (staffDataProfile.length === 0) {
+       select.innerHTML = '<option value="">No Staff Found in Sheet</option>';
+       return;
+    }
+
     const sortedData = [...staffDataProfile].sort((a, b) => a.name.localeCompare(b.name));
     sortedData.forEach(staff => {
-      if (staff.active) {
+      if (staff.active && !staff.name.includes("Error")) {
         const option = document.createElement("option");
         option.value = staff.name;
         option.textContent = staff.name;
@@ -188,6 +207,8 @@
     const sortedData = [...staffDataProfile].sort((a, b) => a.name.localeCompare(b.name));
 
     sortedData.forEach(staff => {
+      if(staff.name.includes("Error")) return;
+
       const tr = document.createElement("tr");
       const statusColor = staff.active ? "green" : "red";
       const statusText = staff.active ? "Active" : "Deactivated";
@@ -272,10 +293,10 @@
       const successMsg = document.getElementById("successMessage");
       const errorMsg = document.getElementById("errorMessage");
 
-      if (result.includes("Duplicate entry")) {
+      if (result.includes("Duplicate entry") || result.includes("Error")) {
         errorMsg.style.display = "block";
         errorMsg.style.backgroundColor = "red";
-        errorMsg.innerText = "Duplicate Entry! Please check and try again.";
+        errorMsg.innerText = result;
         setTimeout(() => errorMsg.style.display = "none", 5000);
       } else {
         form.reset();
