@@ -122,12 +122,10 @@
 
 <script>
   // =========================================================================
-  // PASTE YOUR LATEST DEPLOYMENT URL BELOW
-// =========================================================================
+  // PASTE YOUR LATEST DEPLOYMENT URL BELOW - ENSURE IT ENDS WITH /exec
   // =========================================================================
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby1Rno03TjWx2GaGqZ56kRDD_l88GvhOvqFa2nXQFpiClmK_Bh_5JIcJ8Q-EM62HtjY/exec";
+  const SCRIPT_URL = "YOUR_NEW_WEB_APP_URL_HERE";
   // =========================================================================
- 
 
   let staffDataProfile = [];
 
@@ -146,7 +144,7 @@
         
         if (data.length > 0 && data[0].isError) {
            console.error("Backend Error:", data[0].name);
-           alert("Server Error:\n" + data[0].name + "\n\nPlease run the script in the Apps Script Editor to authorize permissions.");
+           alert("Server Error:\n" + data[0].name);
            document.getElementById("staffName").innerHTML = '<option value="">Permission Error</option>';
            return;
         }
@@ -172,7 +170,7 @@
     select.innerHTML = '<option value="">Select Staff</option>';
 
     if (staffDataProfile.length === 0) {
-       select.innerHTML = '<option value="">No Staff Found in Sheet</option>';
+       select.innerHTML = '<option value="">No Staff Found</option>';
        return;
     }
 
