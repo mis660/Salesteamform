@@ -13,7 +13,7 @@
       background-attachment: fixed;
     }
     .logo { position: fixed; top: 10px; left: 10px; width: 100px; }
-    .form-container, #loginContainer {
+    .form-container, #loginContainer, #summaryContainer {
       max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd;
       background-color: rgba(249, 249, 249, 0.95); border-radius: 8px;
     }
@@ -28,18 +28,24 @@
     .deactivate-btn { background-color: #f44336; }
     .activate-btn { background-color: #ff9800; }
     #successMessage, #errorMessage { display: none; padding: 10px; margin-bottom: 15px; color: white; text-align: center; border-radius: 4px; }
-    #formContainer, #adminPanel { display: none; }
+    #formContainer, #adminPanel, #summaryContainer { display: none; }
     .three-columns { display: flex; flex-wrap: wrap; gap: 10px; }
     .three-columns > div { flex: 1 1 30%; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
     th { background-color: #eee; }
+    
+    /* Summary Table Styles */
+    #summaryTable th { width: 40%; background-color: #e2e8f0; color: #333; }
+    #summaryTable td { font-weight: bold; color: #000; background-color: #fff; }
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; }
   </style>
 </head>
 <body>
 
 <img src="https://pjejewels.github.io/Sales_Team_Form/Logo1.jpg" alt="Logo" class="logo">
 
+<!-- LOGIN SCREEN -->
 <div id="loginContainer">
   <h2>Sales Team Login</h2>
   <label>Username:</label><input type="text" id="username" required>
@@ -48,6 +54,7 @@
   <button type="button" class="admin-btn" onclick="openAdmin()">Admin Access</button>
 </div>
 
+<!-- ADMIN PANEL -->
 <div id="adminPanel" class="form-container">
   <h2>Admin Panel - Manage Users</h2>
   <div style="display: flex; gap: 10px; align-items: center;">
@@ -61,6 +68,7 @@
   <button type="button" class="admin-btn" onclick="closeAdmin()">Log Out Admin</button>
 </div>
 
+<!-- ENTRY FORM -->
 <div id="formContainer" class="form-container">
   <h2>Sales Master Entry Form</h2>
   <div id="successMessage"></div><div id="errorMessage"></div>
@@ -116,8 +124,23 @@
       </div>
       <div><label>Help First Remarks:</label><input type="text" name="helpFirstRemarks" required></div>
     </div>
-    <button type="submit" id="submitBtn" style="margin-top: 15px;">Submit Form</button>
+    <button type="submit" id="reviewBtn" style="margin-top: 15px;">Review & Verify Data</button>
   </form>
+</div>
+
+<!-- NEW SUMMARY REVIEW CONTAINER -->
+<div id="summaryContainer">
+  <h2 style="text-align: center; color: #166247;">Review Your Entry</h2>
+  <p style="text-align: center; font-size: 13px; color: #555;">Please verify your numbers before submitting.</p>
+  
+  <table id="summaryTable">
+    <!-- JavaScript will dynamically fill this table -->
+  </table>
+
+  <div class="btn-group">
+    <button type="button" class="admin-btn" id="editBtn" onclick="editForm()" style="margin-top:0;">✎ Edit Form</button>
+    <button type="button" id="confirmSubmitBtn" onclick="submitForm()">✔ Confirm & Submit</button>
+  </div>
 </div>
 
 <script>
@@ -267,22 +290,86 @@
     }
   }
 
+  // Intercepts the form submission to show the summary page first
   function validateForm() {
     const form = document.getElementById("salesForm");
     if (!form.checkValidity()) {
       alert("Please fill all required fields!");
       return false;
     }
-    submitForm();
+    
+    // Instead of submitting, generate and show the summary
+    showSummary();
     return false;
   }
 
+  // Generates the table and switches views
+  function showSummary() {
+    const form = document.getElementById("salesForm");
+    const formData = new FormData(form);
+    const summaryTable = document.getElementById("summaryTable");
+    
+    // Clear previous summary
+    summaryTable.innerHTML = "";
+
+    // Mapping HTML input names to readable labels for the table
+    const labelMapping = {
+      date: "Date",
+      staffName: "Staff Name",
+      totalWalkIn: "Total Walk-in",
+      bill: "Bill",
+      order: "Order",
+      advance: "Advance",
+      returnCount: "Return",
+      repair: "Repair",
+      npc: "NPC",
+      cancelledOrders: "Cancelled Orders",
+      npcCalls: "NPC Calls",
+      npcVisitStore: "NPC Visit Store",
+      googleReview: "Google Review",
+      referenceCount: "No. of Reference",
+      referenceCalls: "Reference Calls",
+      referenceVisit: "Reference Visit",
+      birthdayCount: "Birthday's (Count)",
+      anniversaryCount: "Anniversary's (Count)",
+      schemesCount: "Schemes (Count)",
+      schemesValue: "Schemes (Value)",
+      salesReturnCount: "Sales Return (Count)",
+      salesReturnValue: "Sales Return (Value)",
+      helpFirst: "Help First",
+      helpFirstRemarks: "Help First Remarks"
+    };
+
+    // Build the table rows based on what the user typed
+    for (let [key, value] of formData.entries()) {
+      const readableLabel = labelMapping[key] || key;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<th>${readableLabel}</th><td>${value}</td>`;
+      summaryTable.appendChild(tr);
+    }
+
+    // Hide the input form, show the summary container
+    document.getElementById("formContainer").style.display = "none";
+    document.getElementById("summaryContainer").style.display = "block";
+  }
+
+  // Allows user to go back and fix things
+  function editForm() {
+    document.getElementById("summaryContainer").style.display = "none";
+    document.getElementById("formContainer").style.display = "block";
+  }
+
+  // Officially posts the data to Google Sheets
   function submitForm() {
     const form = document.getElementById("salesForm");
     const formData = new FormData(form);
-    const submitBtn = document.getElementById("submitBtn");
-    submitBtn.innerText = "Submitting...";
-    submitBtn.disabled = true;
+    const confirmBtn = document.getElementById("confirmSubmitBtn");
+    const editBtn = document.getElementById("editBtn");
+    
+    // Lock buttons to prevent double-clicking
+    confirmBtn.innerText = "Submitting to Database...";
+    confirmBtn.disabled = true;
+    editBtn.disabled = true;
 
     fetch(SCRIPT_URL, {
       method: "POST",
@@ -293,11 +380,15 @@
       const successMsg = document.getElementById("successMessage");
       const errorMsg = document.getElementById("errorMessage");
 
+      // Switch back to main form screen to show success/error message
+      document.getElementById("summaryContainer").style.display = "none";
+      document.getElementById("formContainer").style.display = "block";
+
       if (result.includes("Duplicate entry") || result.includes("Error")) {
         errorMsg.style.display = "block";
         errorMsg.style.backgroundColor = "red";
         errorMsg.innerText = result;
-        setTimeout(() => errorMsg.style.display = "none", 5000);
+        setTimeout(() => errorMsg.style.display = "none", 7000);
       } else {
         form.reset();
         successMsg.style.display = "block";
@@ -305,13 +396,18 @@
         successMsg.innerText = "Form submitted successfully!";
         setTimeout(() => successMsg.style.display = "none", 5000);
       }
-      submitBtn.innerText = "Submit Form";
-      submitBtn.disabled = false;
+      
+      // Unlock buttons
+      confirmBtn.innerText = "✔ Confirm & Submit";
+      confirmBtn.disabled = false;
+      editBtn.disabled = false;
     })
     .catch((error) => {
       console.error("Error:", error);
-      submitBtn.innerText = "Submit Form";
-      submitBtn.disabled = false;
+      alert("Failed to submit. Please check your internet connection.");
+      confirmBtn.innerText = "✔ Confirm & Submit";
+      confirmBtn.disabled = false;
+      editBtn.disabled = false;
     });
   }
 </script>
